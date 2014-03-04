@@ -1,12 +1,14 @@
 require'CSV'
 require'pry'
 
-def format_currency(currency)
-	sprintf('$%.2f', currency)
-end
+#############################################################
+#
+# Bank transaction object
+#
+#############################################################
 
 class BankTransaction
-	attr_accessor :date, :amount, :description, :account
+	attr_reader	 :date,	 :amount,	 :description,	:account
 
 	def initialize(transactions = {})
 		@date = transactions["Date"]
@@ -16,7 +18,7 @@ class BankTransaction
 	end
 
 	def credit?
-		@amount > 0 
+		@amount > 0
 	end
 
 	def debit?
@@ -24,19 +26,27 @@ class BankTransaction
 	end
 
 	# def type
-	# 	if credit? 
+	# 	if credit?
 
 	def summary
 		if credit?
-		puts "#{@date} - CREDIT\t - #{format_currency(@amount.abs)}\t - #{@description} "
+		"#{@date} - \tCREDIT\t - #{format_currency(@amount.abs)}\t - #{@description} "
 		else
-			puts "#{@date} -  DEBIT\t - #{format_currency(@amount.abs)}\t - #{@description} "
+		"#{@date} -  \tDEBIT\t - #{format_currency(@amount.abs)}\t - #{@description} "
 		end
 	end
 end
 
+#############################################################
+#
+#  Bank Account Object
+#
+#############################################################
+
+
 class BankAccount
-	attr_accessor :begin_bal, :name, :transactions
+	attr_accessor :transactions
+	attr_reader :begin_bal, :name
 
 	def initialize(begin_balance, name)
 		@begin_bal = begin_balance.to_f
@@ -49,41 +59,88 @@ class BankAccount
 	end
 
 	def summary
-		@transactions.each do |t|
-			t.summary
+		@transactions.map do |bank_transaction_object|
+			bank_transaction_object.summary
 		end
 	end
 
 	def end_balance
-		@end_balance = @begin_bal
-		@transactions.each do |transaction|
-			
-			@end_balance += transaction.amount
-		end
-		@end_balance
+		@transactions.inject(0){|sum, trans| sum + trans.amount} + @begin_bal
+
+		# @end_balance = @begin_bal
+		# @transactions.each do |transaction|
+
+		# 	@end_balance += transaction.amount
+		# end
+		# @end_balance
 	end
 end
 
-tr1 = BankTransaction.new({"Date"=>"10/2/2013", "Amount"=>"-29.99", "Description"=>"Amazon.com", "Account"=>"Business Checking"})
+#############################################################
+#
+#  Methods
+#
+#############################################################
 
-account = []
-
-CSV.foreach('balances.csv', headers: true) do |row|
-	account << row.to_hash
+def grab_first_word(string)
+	string.split(" ").first
 end
 
-checking = BankAccount.new(account[0]["Balance"], account[0]["Account"])
-purchasing = BankAccount.new(account[1]["Balance"], account[1]["Account"])
+def format_currency(currency)
+	sprintf('$%.2f', currency)
+end
+
+#############################################################
+#
+#  Create a Hash of all Accounts included in CSV file as
+#  bank acount objects
+#  accounts {"Checking" => BankAccountObject1,
+#  					  "Savings" => BankAccountObject2}
+#
+#############################################################
+
+accounts = {}
+
+CSV.foreach('balances.csv', headers: true) do |row|
+	account = row.to_hash
+	# Take the first word from account string
+	short_acct_name = grab_first_word (account["Account"])
+	# Create hash of accounts
+	accounts[short_acct_name] = BankAccount.new(account["Balance"], account["Account"])
+
+end
+
+#############################################################
+#
+#  Bring CSV data into Brank Transactions Objects. For example
+#  tr1 = BankTransaction.new({"Date"=>"10/2/2013",
+# 														"Amount"=>"-29.99",
+#   													"Description"=>"Amazon.com",
+#    													"Account"=>"Business Checking"})
+#
+#############################################################
 
 
-CSV.foreach('bank_data.csv', headers: true ) do |row|
-			 row = row.to_hash
-	 if row["Account"] == "Business Checking"
-	 	checking.add_trans(BankTransaction.new(row.to_hash))
+CSV.foreach('bank_data.csv', headers: true ) do |trans|
+	 trans = trans.to_hash
+	 existing_account = accounts[grab_first_word trans["Account"]]
+
+	 if existing_account.name == trans["Account"]
+	 		existing_account.add_trans(BankTransaction.new(trans.to_hash))
 	 else
-	 	purchasing.add_trans(BankTransaction.new(row.to_hash))
+	 		puts "You need to add a new account"
 	 end
 end
 
-binding.pry
+#############################################################
+#
+# Prints account hashes to screen for business and purchasing
+#
+#############################################################
 
+accounts.each do |k, v|
+	puts " " , "==== #{v.name} ===="
+	puts "Starting Balance: #{format_currency(v.begin_bal)}"
+	puts "Ending Balance: #{format_currency(v.end_balance)}"
+	puts v.summary
+end
