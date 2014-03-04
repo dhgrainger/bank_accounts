@@ -65,14 +65,8 @@ class BankAccount
 	end
 
 	def end_balance
-		@transactions.inject(0){|sum, trans| sum + trans.amount} + @begin_bal
+		@transactions.inject(@begin_bal) { |sum, trans| sum + trans.amount }
 
-		# @end_balance = @begin_bal
-		# @transactions.each do |transaction|
-
-		# 	@end_balance += transaction.amount
-		# end
-		# @end_balance
 	end
 end
 
@@ -94,19 +88,17 @@ end
 #
 #  Create a Hash of all Accounts included in CSV file as
 #  bank acount objects
-#  accounts {"Checking" => BankAccountObject1,
-#  					  "Savings" => BankAccountObject2}
+#  accounts {"Business" => BankAccountObject1,
+#  					  "Purchasing" => BankAccountObject2}
 #
 #############################################################
 
 accounts = {}
 
 CSV.foreach('balances.csv', headers: true) do |row|
-	account = row.to_hash
-	# Take the first word from account string
-	short_acct_name = grab_first_word (account["Account"])
-	# Create hash of accounts
-	accounts[short_acct_name] = BankAccount.new(account["Balance"], account["Account"])
+
+	short_acct_name = grab_first_word(row["Account"])
+	accounts[short_acct_name] = BankAccount.new(row["Balance"], row["Account"])
 
 end
 
@@ -123,12 +115,18 @@ end
 
 CSV.foreach('bank_data.csv', headers: true ) do |trans|
 	 trans = trans.to_hash
-	 existing_account = accounts[grab_first_word trans["Account"]]
+	 name_from_transaction = grab_first_word(trans["Account"])
+	 existing_account = accounts[name_from_transaction]
 
-	 if existing_account.name == trans["Account"]
+
+	 unless existing_account
+ 		existing_account = BankAccount.new(0, name_from_transaction)
+ 		accounts[name_from_transaction] = existing_account
+ 		binding.pry
+	 end
+
+	 if	existing_account.name == trans["Account"]
 	 		existing_account.add_trans(BankTransaction.new(trans.to_hash))
-	 else
-	 		puts "You need to add a new account"
 	 end
 end
 
